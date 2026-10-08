@@ -1,0 +1,45 @@
+{
+  "scenarios": [
+    {
+      "attacker": "h2",
+      "victim": "h3",
+      "link": "s2-s3",
+      "name": "a",
+      "start": 1791438074.9033685,
+      "end": 1791438107.9332776
+    },
+    {
+      "attacker": "h2",
+      "victim": "h6",
+      "link": "s2-s6",
+      "name": "b",
+      "start": 1791438140.9642317,
+      "end": 1791438173.9858992
+    },
+    {
+      "attacker": "h5",
+      "victim": "h6",
+      "link": "s5-s6",
+      "name": "c",
+      "start": 1791438207.016765,
+      "end": 1791438240.0546386
+    }
+  ],
+  "args": {
+    "out": "results/run1",
+    "controller": "/home/ceg5101/CA2/solution/anomaly_aware_controller.py",
+    "scenarios": "a,b,c",
+    "baseline": 30,
+    "attack": 30,
+    "recover": 30,
+    "rate": "5M",
+    "cost_mode": "controller",
+    "alpha": null,
+    "beta": null
+  },
+  "pingall_loss": 0.0,
+  "t_iperf": 1791438041.86083,
+  "t_ping": 1791438041.862023,
+  "t0": 1791438041.8697557,
+  "t_end": 1791438272.9173896
+}

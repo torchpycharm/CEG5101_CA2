@@ -1,0 +1,15 @@
+# Course handouts (PDF guides, slides) - not tracked
+Assignment/
+Lab Documents/
+Presentation/
+*.pdf
+*.pptx
+
+# Short trial runs
+solution/results/test_*/
+
+# Python / editor / OS noise
+__pycache__/
+*.pyc
+.vscode/
+.DS_Store
