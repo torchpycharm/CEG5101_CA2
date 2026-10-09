@@ -176,6 +176,13 @@ class AnomalyAwareController(app_manager.RyuApp):
                                           ofproto.OFPCML_NO_BUFFER)]
         self._add_flow(datapath, 0, parser.OFPMatch(), actions)
 
+        # A switch that (re)connects starts with fresh ports: forget the ports and
+        # links recorded as down for it (e.g. after Mininet was stopped and restarted
+        # while the controller kept running), otherwise its links are never re-learned.
+        self.down_ports = set(p for p in self.down_ports if p[0] != datapath.id)
+        self.flow_prev.pop(datapath.id, None)
+        self.port_prev.pop(datapath.id, None)
+
         # flows that crossed this switch have lost a rule: let them be set up again
         for key, flow in list(self.flows.items()):
             if datapath.id in flow['rules']:
@@ -687,6 +694,11 @@ class AnomalyAwareController(app_manager.RyuApp):
         anomaly_links = set()
         for info in self.blocked.values():
             anomaly_links |= info['links']
+
+        # links that are no longer in the graph must not linger in the logs
+        for key in list(self.link_state):
+            if key[1] not in self.graph.get(key[0], {}):
+                del self.link_state[key]
 
         for u in self.graph:
             for v in self.graph[u]:
