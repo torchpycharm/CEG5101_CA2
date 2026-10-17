@@ -64,14 +64,18 @@ def shade_scenarios(ax, run, label=True):
 
 def mark_reroutes(ax, run, label=True):
     """Dotted line at every reroute of the legitimate h1 -> h6 flow"""
+    last_t, row = None, 0
     for t, event, detail in run.events():
         if event != 'REROUTE' or not detail.startswith(LEGIT + ' '):
             continue
         new_path = detail.split('=> ')[1].split(' ')[0].replace('>', '-')
         ax.axvline(t, color=TEXT_2, linestyle=':', linewidth=1.0, zorder=1)
+        # reroutes a few seconds apart get their labels on separate rows
+        row = row + 1 if last_t is not None and t - last_t < 20 else 0
+        last_t = t
         if label:
-            ax.text(t + 1, 0.92, '→ %s' % new_path, transform=ax.get_xaxis_transform(),
-                    fontsize=7.5, color=TEXT_2, va='top')
+            ax.text(t + 1, 0.92 - 0.08 * row, '→ %s' % new_path,
+                    transform=ax.get_xaxis_transform(), fontsize=7.5, color=TEXT_2, va='top')
 
 
 def direct_label(ax, x, y, text, color):

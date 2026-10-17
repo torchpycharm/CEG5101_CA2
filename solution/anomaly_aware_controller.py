@@ -70,8 +70,13 @@ COST_MODE = os.environ.get('CA2_COST_MODE', 'controller')
 
 FWD_COOKIE = 0xCA20001         # forwarding rules installed by this app
 DROP_COOKIE = 0xCA20002        # drop rules for blocked sources
+ICMP_RATE_COOKIE = 0xCA20003   # typed echo counters on each source's access switch
 FWD_PRIORITY = 10
+ICMP_RATE_PRIORITY = FWD_PRIORITY + 1
 DROP_PRIORITY = 5000
+ICMPV4_PROTO = 1               # IPv4 protocol number for ICMP
+ICMP_ECHO_REPLY = 0
+ICMP_ECHO_REQUEST = 8
 
 Host = namedtuple('Host', 'mac dpid port')
 
@@ -103,7 +108,7 @@ class AnomalyAwareController(app_manager.RyuApp):
         self.flows = {}               # (src_ip, dst_ip) -> {'path': [dpid], 'rules': {dpid: out_port}}
 
         # --- traffic monitoring ---
-        self.flow_sample = {}         # dpid -> {'time': t, 'fwd': {(src, dst): (pkts, bytes)}, 'drop': {ip: pkts}}
+        self.flow_sample = {}         # dpid -> {'time': t, 'fwd': typed counters, 'drop': {ip: pkts}}
         self.flow_pending = {}        # dpid -> sample being assembled from multipart replies
         self.flow_prev = {}           # dpid -> previous completed sample
         self.port_sample = {}         # dpid -> {'time': t, 'tx': {port: tx_bytes}}
@@ -165,7 +170,7 @@ class AnomalyAwareController(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        for cookie in (FWD_COOKIE, DROP_COOKIE):
+        for cookie in (FWD_COOKIE, DROP_COOKIE, ICMP_RATE_COOKIE):
             datapath.send_msg(parser.OFPFlowMod(
                 datapath=datapath, cookie=cookie, cookie_mask=0xffffffffffffffff,
                 table_id=ofproto.OFPTT_ALL, command=ofproto.OFPFC_DELETE,
@@ -381,7 +386,11 @@ class AnomalyAwareController(app_manager.RyuApp):
         """
         dst_host = self.hosts[dst_ip]
         new_rules = self._path_rules(path, dst_host)
-        old_rules = self.flows.get((src_ip, dst_ip), {}).get('rules', {})
+        old_flow = self.flows.get((src_ip, dst_ip), {})
+        old_rules = old_flow.get('rules', {})
+        old_path = old_flow.get('path', [])
+        old_source_dpid = old_path[0] if old_path else None
+        source_dpid = path[0]
 
         for dpid in reversed(path):
             datapath = self.datapaths.get(dpid)
@@ -396,6 +405,23 @@ class AnomalyAwareController(app_manager.RyuApp):
             self._add_flow(datapath, FWD_PRIORITY, match, actions,
                            cookie=FWD_COOKIE, command=command)
 
+        # Separate ICMP Echo Request and Reply counters at the source access
+        # switch.  The forwarding actions are identical to the general rule.
+        datapath = self.datapaths.get(source_dpid)
+        if datapath is not None:
+            command = (datapath.ofproto.OFPFC_MODIFY_STRICT
+                       if old_source_dpid == source_dpid
+                       else datapath.ofproto.OFPFC_ADD)
+            self._install_icmp_rate_flows(
+                datapath, src_ip, dst_ip, new_rules[source_dpid], command)
+
+        # A host may move to another access switch.  Remove its old typed
+        # counters even if that switch remains on the new path as a transit hop.
+        if old_source_dpid is not None and old_source_dpid != source_dpid:
+            old_datapath = self.datapaths.get(old_source_dpid)
+            if old_datapath is not None:
+                self._delete_icmp_rate_flows(old_datapath, src_ip, dst_ip)
+
         for dpid in old_rules:
             if dpid in new_rules or dpid not in self.datapaths:
                 continue
@@ -405,6 +431,30 @@ class AnomalyAwareController(app_manager.RyuApp):
             self._del_flow(datapath, FWD_PRIORITY, match, FWD_COOKIE)
 
         self.flows[(src_ip, dst_ip)] = {'path': list(path), 'rules': new_rules}
+
+    def _install_icmp_rate_flows(self, datapath, src_ip, dst_ip, out_port,
+                                 command):
+        """Install type-specific counters without changing forwarding behavior"""
+        parser = datapath.ofproto_parser
+        actions = [parser.OFPActionOutput(out_port)]
+        for icmp_type in (ICMP_ECHO_REQUEST, ICMP_ECHO_REPLY):
+            match = parser.OFPMatch(
+                eth_type=ether_types.ETH_TYPE_IP,
+                ipv4_src=src_ip, ipv4_dst=dst_ip,
+                ip_proto=ICMPV4_PROTO, icmpv4_type=icmp_type)
+            self._add_flow(datapath, ICMP_RATE_PRIORITY, match, actions,
+                           cookie=ICMP_RATE_COOKIE, command=command)
+
+    def _delete_icmp_rate_flows(self, datapath, src_ip, dst_ip):
+        """Remove the type-specific counters for one source/destination pair"""
+        parser = datapath.ofproto_parser
+        for icmp_type in (ICMP_ECHO_REQUEST, ICMP_ECHO_REPLY):
+            match = parser.OFPMatch(
+                eth_type=ether_types.ETH_TYPE_IP,
+                ipv4_src=src_ip, ipv4_dst=dst_ip,
+                ip_proto=ICMPV4_PROTO, icmpv4_type=icmp_type)
+            self._del_flow(datapath, ICMP_RATE_PRIORITY, match,
+                           ICMP_RATE_COOKIE)
 
     def _ensure_flow(self, src_ip, dst_ip):
         """Route a new (src_ip, dst_ip) pair"""
@@ -542,7 +592,13 @@ class AnomalyAwareController(app_manager.RyuApp):
             if not ip_src:
                 continue
             if stat.cookie == FWD_COOKIE:
-                pending['fwd'][(ip_src, stat.match.get('ipv4_dst'))] = \
+                pending['fwd'][(ip_src, stat.match.get('ipv4_dst'), None)] = \
+                    (stat.packet_count, stat.byte_count)
+            elif stat.cookie == ICMP_RATE_COOKIE:
+                icmp_type = stat.match.get('icmpv4_type')
+                if icmp_type not in (ICMP_ECHO_REQUEST, ICMP_ECHO_REPLY):
+                    continue
+                pending['fwd'][(ip_src, stat.match.get('ipv4_dst'), icmp_type)] = \
                     (stat.packet_count, stat.byte_count)
             elif stat.cookie == DROP_COOKIE:
                 pending['drop'][ip_src] = stat.packet_count
@@ -574,8 +630,9 @@ class AnomalyAwareController(app_manager.RyuApp):
     # Rate estimation
     # ------------------------------------------------------------------
     def _measure_sources(self):
-        """Packets/s per source IP, counted on the switch its host is attached to"""
+        """Per-source pps at access switches, discounting matched echo replies"""
         source_pps, flow_pps, drop_pps = {}, {}, {}
+        measured_flow_pps = {}
         access = {}
         for ip, host in self.hosts.items():
             access.setdefault(host.dpid, set()).add(ip)
@@ -591,19 +648,34 @@ class AnomalyAwareController(app_manager.RyuApp):
 
             for ip in local_ips:
                 source_pps[ip] = 0.0
-            for (src, dst), (pkts, _bytes) in sample['fwd'].items():
+            for (src, dst, icmp_type), (pkts, _bytes) in sample['fwd'].items():
                 if src not in local_ips:
                     continue
-                before = prev['fwd'].get((src, dst), (0, 0))[0]
+                key = (src, dst, icmp_type)
+                before = prev['fwd'].get(key, (0, 0))[0]
                 delta = pkts - before if pkts >= before else pkts
-                flow_pps[(src, dst)] = delta / dt
-                source_pps[src] += delta / dt
+                measured_flow_pps[key] = delta / dt
+
             for ip, pkts in sample['drop'].items():
                 if ip not in local_ips:
                     continue
                 before = prev['drop'].get(ip, 0)
                 delta = pkts - before if pkts >= before else pkts
                 drop_pps[ip] = delta / dt
+
+        # Echo replies are generated by the destination and reverse the
+        # request's IP addresses.  Subtract only the portion backed by a
+        # reverse Echo Request in this sample; unpaired type-0 traffic still
+        # contributes to the source's rate.
+        for (src, dst, icmp_type), rate in measured_flow_pps.items():
+            if icmp_type == ICMP_ECHO_REPLY:
+                request_pps = measured_flow_pps.get(
+                    (dst, src, ICMP_ECHO_REQUEST), 0.0)
+                rate = max(0.0, rate - request_pps)
+            if rate <= 0.0:
+                continue
+            flow_pps[(src, dst)] = flow_pps.get((src, dst), 0.0) + rate
+            source_pps[src] += rate
         return source_pps, flow_pps, drop_pps
 
     def _measure_links(self):
