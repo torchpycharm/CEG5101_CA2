@@ -207,7 +207,7 @@ def main():
         time.sleep(1)
         timeline['t_iperf'] = time.time()
         run_on(LEGIT_SRC, 'iperf3 -c %s -p 5201 -u -b %s -l 1200 -t %d -i 1 --forceflush'
-               % (dst.IP(), args.rate, total + 5), 'iperf_client.txt')
+               % (dst.IP(), args.rate, total + 30), 'iperf_client.txt')   # outlasts the last recovery
         timeline['t_ping'] = time.time()
         run_on(LEGIT_SRC, 'ping -D -i 0.1 -W 1 %s' % dst.IP(), 'ping_h1_h6.txt')
         for a, b in BACKGROUND_PINGS:
