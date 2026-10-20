@@ -1,0 +1,69 @@
+time,event,detail
+1792516700.603,ANOMALY,10.0.0.2 rate=5708 pps baseline=2.0 pps threshold=1000 pps links=s2-s3
+1792516700.604,BLOCK,10.0.0.2 blocked on all switches
+1792516700.604,REROUTE,10.0.0.1->10.0.0.3 s1>s2>s3 (37.03) => s1>s5>s3 (20.00) [cost update]
+1792516700.605,REROUTE,10.0.0.3->10.0.0.1 s3>s2>s1 (37.03) => s3>s5>s1 (20.00) [cost update]
+1792516700.606,REROUTE,10.0.0.3->10.0.0.2 s3>s2 (30.73) => s3>s5>s2 (20.00) [cost update]
+1792516700.606,REROUTE,10.0.0.3->10.0.0.4 s3>s2>s4 (38.73) => s3>s5>s4 (20.00) [cost update]
+1792516700.607,REROUTE,10.0.0.4->10.0.0.3 s4>s2>s3 (38.73) => s4>s5>s3 (20.00) [cost update]
+1792516736.656,UNBLOCK,10.0.0.2 released after 36 s (anomalous traffic stopped)
+1792516736.656,REROUTE,10.0.0.1->10.0.0.3 s1>s5>s3 (20.00) => s1>s2>s3 (16.30) [cost update]
+1792516736.657,REROUTE,10.0.0.3->10.0.0.1 s3>s5>s1 (20.00) => s3>s2>s1 (16.30) [cost update]
+1792516736.658,REROUTE,10.0.0.3->10.0.0.2 s3>s5>s2 (20.00) => s3>s2 (10.00) [cost update]
+1792516736.658,REROUTE,10.0.0.3->10.0.0.4 s3>s5>s4 (20.00) => s3>s2>s4 (18.00) [cost update]
+1792516736.659,REROUTE,10.0.0.4->10.0.0.3 s4>s5>s3 (20.00) => s4>s2>s3 (18.00) [cost update]
+1792516760.688,ANOMALY,10.0.0.2 rate=4124 pps baseline=2.0 pps threshold=1000 pps links=s2-s6
+1792516760.688,BLOCK,10.0.0.2 blocked on all switches
+1792516760.689,REROUTE,10.0.0.1->10.0.0.6 s1>s2>s6 (38.30) => s1>s5>s6 (20.00) [cost update]
+1792516760.690,REROUTE,10.0.0.6->10.0.0.1 s6>s2>s1 (38.30) => s6>s5>s1 (20.00) [cost update]
+1792516760.690,REROUTE,10.0.0.6->10.0.0.2 s6>s2 (32.00) => s6>s5>s2 (20.00) [cost update]
+1792516760.691,REROUTE,10.0.0.4->10.0.0.6 s4>s2>s6 (40.00) => s4>s5>s6 (20.00) [cost update]
+1792516760.691,REROUTE,10.0.0.6->10.0.0.4 s6>s2>s4 (40.00) => s6>s5>s4 (20.00) [cost update]
+1792516796.745,UNBLOCK,10.0.0.2 released after 36 s (anomalous traffic stopped)
+1792516796.745,REROUTE,10.0.0.1->10.0.0.6 s1>s5>s6 (22.59) => s1>s2>s6 (15.00) [cost update]
+1792516796.746,REROUTE,10.0.0.6->10.0.0.1 s6>s5>s1 (22.59) => s6>s2>s1 (15.00) [cost update]
+1792516796.747,REROUTE,10.0.0.6->10.0.0.2 s6>s5>s2 (21.30) => s6>s2 (10.00) [cost update]
+1792516796.748,REROUTE,10.0.0.4->10.0.0.6 s4>s5>s6 (21.30) => s4>s2>s6 (18.00) [cost update]
+1792516796.749,REROUTE,10.0.0.6->10.0.0.4 s6>s5>s4 (21.30) => s6>s2>s4 (18.00) [cost update]
+1792516820.783,ANOMALY,10.0.0.5 rate=17147 pps baseline=1.0 pps threshold=1000 pps links=s5-s6
+1792516820.784,BLOCK,10.0.0.5 blocked on all switches
+1792516820.785,REROUTE,10.0.0.6->10.0.0.5 s6>s5 (30.57) => s6>s3>s5 (20.00) [cost update]
+1792516856.833,UNBLOCK,10.0.0.5 released after 36 s (anomalous traffic stopped)
+1792516856.834,REROUTE,10.0.0.6->10.0.0.5 s6>s3>s5 (20.00) => s6>s5 (10.00) [cost update]
+1792516880.752,LINK_DOWN,s1-s2
+1792516880.753,REROUTE,10.0.0.1->10.0.0.2 s1>s2 (inf) => s1>s5>s2 (20.00) [link failure]
+1792516880.754,REROUTE,10.0.0.2->10.0.0.1 s2>s1 (inf) => s2>s5>s1 (20.00) [link failure]
+1792516880.756,REROUTE,10.0.0.1->10.0.0.3 s1>s2>s3 (inf) => s1>s5>s3 (20.00) [link failure]
+1792516880.756,REROUTE,10.0.0.3->10.0.0.1 s3>s2>s1 (inf) => s3>s5>s1 (20.00) [link failure]
+1792516880.757,REROUTE,10.0.0.1->10.0.0.4 s1>s2>s4 (inf) => s1>s4 (20.00) [link failure]
+1792516880.757,REROUTE,10.0.0.4->10.0.0.1 s4>s2>s1 (inf) => s4>s1 (20.00) [link failure]
+1792516880.758,REROUTE,10.0.0.1->10.0.0.6 s1>s2>s6 (inf) => s1>s5>s6 (20.00) [link failure]
+1792516880.759,REROUTE,10.0.0.6->10.0.0.1 s6>s2>s1 (inf) => s6>s5>s1 (20.00) [link failure]
+1792516880.798,LINK_DOWN,s4-s1
+1792516880.800,REROUTE,10.0.0.1->10.0.0.4 s1>s4 (inf) => s1>s5>s4 (20.00) [link failure]
+1792516880.800,REROUTE,10.0.0.4->10.0.0.1 s4>s1 (inf) => s4>s5>s1 (20.00) [link failure]
+1792516880.828,LINK_DOWN,s1-s5
+1792516880.963,LINK_DOWN,s3-s2
+1792516880.964,REROUTE,10.0.0.2->10.0.0.3 s2>s3 (inf) => s2>s5>s3 (20.00) [link failure]
+1792516880.965,REROUTE,10.0.0.3->10.0.0.2 s3>s2 (inf) => s3>s5>s2 (20.00) [link failure]
+1792516880.965,REROUTE,10.0.0.3->10.0.0.4 s3>s2>s4 (inf) => s3>s5>s4 (20.00) [link failure]
+1792516880.966,REROUTE,10.0.0.4->10.0.0.3 s4>s2>s3 (inf) => s4>s5>s3 (20.00) [link failure]
+1792516881.000,LINK_DOWN,s4-s2
+1792516881.001,REROUTE,10.0.0.2->10.0.0.4 s2>s4 (inf) => s2>s5>s4 (20.00) [link failure]
+1792516881.002,REROUTE,10.0.0.4->10.0.0.2 s4>s2 (inf) => s4>s5>s2 (20.00) [link failure]
+1792516881.003,REROUTE,10.0.0.4->10.0.0.6 s4>s2>s6 (inf) => s4>s5>s6 (20.00) [link failure]
+1792516881.004,REROUTE,10.0.0.6->10.0.0.4 s6>s2>s4 (inf) => s6>s5>s4 (20.00) [link failure]
+1792516881.057,LINK_DOWN,s5-s2
+1792516881.058,REROUTE,10.0.0.2->10.0.0.3 s2>s5>s3 (inf) => s2>s6>s3 (21.09) [link failure]
+1792516881.058,REROUTE,10.0.0.3->10.0.0.2 s3>s5>s2 (inf) => s3>s6>s2 (21.09) [link failure]
+1792516881.059,REROUTE,10.0.0.2->10.0.0.4 s2>s5>s4 (inf) => s2>s6>s5>s4 (31.09) [link failure]
+1792516881.060,REROUTE,10.0.0.4->10.0.0.2 s4>s5>s2 (inf) => s4>s5>s6>s2 (31.09) [link failure]
+1792516881.060,REROUTE,10.0.0.2->10.0.0.5 s2>s5 (inf) => s2>s6>s5 (21.09) [link failure]
+1792516881.061,REROUTE,10.0.0.5->10.0.0.2 s5>s2 (inf) => s5>s6>s2 (21.09) [link failure]
+1792516881.101,LINK_DOWN,s6-s2
+1792516881.231,LINK_DOWN,s6-s3
+1792516881.232,REROUTE,10.0.0.3->10.0.0.6 s3>s6 (inf) => s3>s5>s6 (20.00) [link failure]
+1792516881.232,REROUTE,10.0.0.6->10.0.0.3 s6>s3 (inf) => s6>s5>s3 (20.00) [link failure]
+1792516881.233,LINK_DOWN,s5-s3
+1792516881.309,LINK_DOWN,s4-s5
+1792516881.401,LINK_DOWN,s6-s5
