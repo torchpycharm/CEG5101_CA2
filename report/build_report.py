@@ -200,10 +200,6 @@ def keep_together(t):
     for k, row in enumerate(rows):
         trPr = row._tr.get_or_add_trPr()
         el = OxmlElement('w:cantSplit'); el.set(qn('w:val'), 'true'); trPr.append(el)
-        for cell in row.cells:
-            for p in cell.paragraphs:
-                p.paragraph_format.keep_with_next = True if k < len(rows) - 1 else p.paragraph_format.keep_with_next
-                p.paragraph_format.keep_together = True
 
 
 def figure(fname, width_cm, cap_text):
@@ -263,8 +259,6 @@ def placeholder(title, lines, cap_text, height_lines=6):
     for _ in range(height_lines):
         cell.add_paragraph()
     keep_together(t)
-    for p in cell.paragraphs:
-        p.paragraph_format.keep_with_next = True
     caption(cap_text)
 
 
@@ -410,20 +404,44 @@ body('Every 2 s the controller sends an `OFPFlowStatsRequest` and an `OFPPortSta
      'The reference `anomaly_detection.py` keeps a separate baseline for every (switch, IP) pair, so a flow '
      'that crosses three switches is measured three times. Measuring at the ingress gives exactly one value '
      'per host, taken at the point where the block later takes effect.')
-body('**Excluding ICMP Echo Replies.** An ICMP flood makes the victim answer every request, so the victim '
-     'sends Echo Replies at the same rate as the flood. If these replies counted as the victim\'s own traffic, '
-     'the victim would exceed the threshold and be blocked too. In scenarios b and c that victim is h6, the '
-     'destination of the legitimate flow, so a correct-looking detector would cut exactly the traffic it is '
-     'meant to protect. An early prototype of our controller did exactly this. The controller therefore '
-     'installs two extra priority-11 rules for each (source, destination) pair on the source\'s access switch. '
-     'They match ICMP type 8 (Echo Request) and type 0 (Echo Reply) and use the same output action as the '
-     'forwarding rule, so forwarding is unchanged but the two message types are counted separately. Echo '
-     'Replies are excluded from the source rate, while Echo Requests and all non-ICMP traffic still count. Link '
-     'load (Task 3) is measured from port counters and still includes the replies. In run4, h3 sent '
-     '41,311 replies per second into s3 during the first second of scenario a, yet its measured source rate '
-     'stayed at 1.0 pps (its background ping) and it was never flagged.')
+body('Echo Replies are excluded from the source rate. Section 4.2 explains why and how.')
 
-h2('4.2  EMA baseline and anomaly threshold')
+h2('4.2  Avoiding false blocking of the victim')
+body('**Problem.** An ICMP flood makes the victim answer every request, so the victim sends Echo Replies '
+     'back to the attacker at the same rate as the flood. A detector that counts every IPv4 packet by its '
+     'source address therefore sees two "anomalous" sources: the attacker and the victim. The first version '
+     'of our controller did exactly this and blocked h3 together with h2 in scenario a. In scenarios b and c '
+     'the victim is h6, the destination of the legitimate flow. Blocking h6 drops every packet h6 sends, '
+     'including the ping replies and iperf3 control traffic of the h1→h6 session, so the detector would cut '
+     'the very traffic it is meant to protect.')
+body('**First attempt.** The second version kept one counter per source and, within each poll, subtracted '
+     'the Echo Requests a host had received from the Echo Replies it had sent. This still blocked the victim '
+     'from time to time. OpenFlow statistics replies arrive from each switch asynchronously, so a request '
+     'and its reply are often counted in different polls (and once the attacker is blocked, the remaining '
+     'replies have no requests to cancel them). Same-poll cancellation is therefore unreliable.')
+body('**Final design.** The controller now separates the two message types in the data plane. For each '
+     '(source, destination) pair it installs two extra rules on the source\'s access switch, at priority 11, '
+     'just above the forwarding rule. They match ICMP type 8 (Echo Request) and type 0 (Echo Reply) and use '
+     'the same output port as the forwarding rule, so forwarding is unchanged but each type has its own packet '
+     'counter. The source rate is the sum of all counters except the Echo Reply counter. Echo Requests and '
+     'all non-ICMP traffic are still counted, so a host that floods with requests, UDP or anything else is '
+     'still detected. Because the classification is done per rule rather than by matching requests to '
+     'replies, the asynchronous arrival of statistics no longer matters. Link load (Task 3) is measured from '
+     'port counters and still includes the replies, so the cost of a link carrying a reply stream is not '
+     'understated.')
+table(['Version', 'Source rate counts', 'Outcome'],
+      [['1', 'all IPv4 packets from the source', 'victim (h3 / h6) blocked together with the attacker'],
+       ['2', 'all IPv4 packets minus Echo Requests received in the same poll',
+        'victim still blocked at times: requests and replies fall into different polls'],
+       ['3 (final)', 'all IPv4 packets except Echo Replies, using typed per-rule counters',
+        'only the attacker blocked in all three scenarios of run4']],
+      [2.0, 6.6, 7.6], cap='Table 4. Evolution of the source-rate measurement.', align_cols=[0])
+body('**Evidence from run4.** During the first second of scenario a, h3 sent 41,311 Echo Replies per second '
+     'into s3, yet its measured source rate stayed at 1.0 pps (its background ping) and it was never flagged. '
+     'The same holds for h6 in scenarios b and c. The design has one limit, discussed in Section 8: a flood '
+     'made only of Echo Replies would not count against its sender.')
+
+h2('4.3  EMA baseline and anomaly threshold')
 body('For each source *s* with measured rate *r*_{s} (packets/s), the baseline *B*_{s} and threshold '
      '*T*_{s} are')
 para('*B*_{s} ← 0.3 · *r*_{s} + 0.7 · *B*_{s}          *T*_{s} = max(3 · *B*_{s} , 1000 pps)', align='center')
@@ -452,7 +470,7 @@ table(['Source', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
       cap='Table 3. Source baselines learned from normal traffic, just before the first attack (t = 29.3 s).',
       align_cols=[1, 2, 3, 4, 5, 6], first_col_bold=True)
 
-h2('4.3  Blocking and release')
+h2('4.4  Blocking and release')
 body('When a source is flagged, the controller installs on **all six switches** a rule matching '
      '`eth_type=IPv4, ipv4_src=<attacker>` with an empty action list (drop), priority 5000 and its own cookie. '
      'This is the same firewall rule as in the reference code. Packets from a blocked source that reach the '
@@ -462,13 +480,13 @@ body('When a source is flagged, the controller installs on **all six switches** 
      'rules are deleted and the source is released. Requiring three quiet polls stops a source from being '
      'released during a brief pause in the attack.')
 
-h2('4.4  Results and verification')
+h2('4.5  Results and verification')
 table(['Scenario', 'Attacker → victim', 'Detected after flood start', 'Rate at detection', 'Baseline / threshold',
        'IPs blocked', 'Drop-rule counter at ingress (13.8 s into block)'],
       [['a', 'h2 → h3', '1.24 s', '5,708 pps', '1.98 / 1000 pps', '10.0.0.2 only', 's2: 883,740 pkts'],
        ['b', 'h2 → h6', '1.22 s', '4,124 pps', '1.99 / 1000 pps', '10.0.0.2 only', 's2: 854,260 pkts'],
        ['c', 'h5 → h6', '1.20 s', '17,147 pps', '1.00 / 1000 pps', '10.0.0.5 only', 's5: 854,559 pkts']],
-      [1.5, 2.0, 2.2, 2.0, 2.4, 2.2, 3.9], cap='Table 4. Detection and blocking in run4.',
+      [1.5, 2.0, 2.2, 2.0, 2.4, 2.2, 3.9], cap='Table 5. Detection and blocking in run4.',
       align_cols=[0, 2, 3, 4])
 body('In every scenario only the attacker was blocked, at the first poll after the flood began (about '
      '1.2 s). The rate at detection is lower than the true flood rate because the flood started part-way '
@@ -550,7 +568,7 @@ table(['Scenario', 'Link', 'C^{0}', 'Cost before (norm.)', 'Peak util.', 'Peak c
        ['b', 's2–s6', '10', '11.30 (1.13)', '0.200', '32.00 (3.20)', '30.00 (3.00)', '10.00 at +7.2 s, then 11.09'],
        ['c', 's5–s6', '10', '10.00 (1.00)', '0.076', '30.76 (3.08)', '30.00 (3.00)', '10.00 at +7.2 s']],
       [1.5, 1.4, 1.0, 2.3, 1.5, 2.4, 2.4, 3.6],
-      cap='Table 5. Dynamic cost of the flooded links (release time measured from the end of the flood).',
+      cap='Table 6. Dynamic cost of the flooded links (release time measured from the end of the flood).',
       align_cols=[0, 2, 4])
 body('Figure 6 (Section 7) plots these costs against time. Four observations follow:')
 bullets(['**The load term and the anomaly term act on different time scales.** At the first poll after the '
@@ -595,7 +613,7 @@ h2('6.2  Initial state of the h1→h6 flow')
 body('Before any anomaly, h1→h6 follows **s1 → s2 → s6 → h6**, both according to the controller and as traced '
      'from the switches\' flow tables. Its path cost is 15 from C^{0} alone, or 17.59 including its own load '
      '(s1–s2 = 6.30, s2–s6 = 11.30). During the baseline it delivers 5.00 Mbit/s with 0 % UDP loss and 0 % '
-     'ping loss, and its RTT is 98.5 ms, matching 2 × (15 + 5 + 14 + 15) ms of link delays. Table 6 lists the '
+     'ping loss, and its RTT is 98.5 ms, matching 2 × (15 + 5 + 14 + 15) ms of link delays. Table 7 lists the '
      'candidate paths and their costs in each phase. The chosen path is always the cheapest one in its column.')
 table(['h1→h6 path', 'C^{0} sum', 'Baseline', 'Scenario a', 'Scenario b', 'Scenario c'],
       [['s1–s2–s6', '15', '**17.59**', '**17.60**', '38.30', '**17.59**'],
@@ -604,7 +622,7 @@ table(['h1→h6 path', 'C^{0} sum', 'Baseline', 'Scenario a', 'Scenario b', 'Sce
        ['s1–s2–s5–s6', '25', '26.30', '26.30', '26.30', '46.87'],
        ['s1–s5–s3–s6', '30', '30.00', '30.00', '30.00', '30.00']],
       [3.6, 1.8, 2.3, 2.3, 2.3, 2.3],
-      cap='Table 6. Cost of the h1→h6 candidate paths at the first poll after each attack is detected '
+      cap='Table 7. Cost of the h1→h6 candidate paths at the first poll after each attack is detected '
           '(baseline: t = 25 s). Bold: the selected path.', align_cols=[1, 2, 3, 4, 5])
 
 h2('6.3  Behaviour in each scenario')
@@ -624,7 +642,7 @@ table(['Requirement', 'Scenario a: h2→h3, s2–s3', 'Scenario b: h2→h6, s2�
        ['f. Recovery', 'h2 released 7.2 s after the flood; s2–s3 back to 10; h1→h6 never moved',
         'h2 released 7.2 s after the flood; s2–s6 back to 10; h1→h6 back on s1–s2–s6 in the same poll '
         '(data plane +7.8 s)', 'h5 released 7.2 s after the flood; s5–s6 back to 10; h1→h6 never moved']],
-      [3.2, 4.3, 4.6, 4.3], cap='Table 7. Requirements a–f of Task 4 for each scenario (times relative to the '
+      [3.2, 4.3, 4.6, 4.3], cap='Table 8. Requirements a–f of Task 4 for each scenario (times relative to the '
                                 'start of the flood unless stated).', first_col_bold=True)
 body('**Scenario a (link s2–s3).** The flagged link is not on the h1→h6 path. That path stays the cheapest '
      '(17.60 against 20.00), so the controller correctly leaves the flow untouched: its throughput, loss and RTT '
@@ -649,7 +667,7 @@ body('**Scenario c (link s5–s6).** This flood hits the alternative path rather
 # ================================================================== 7 TASK 5
 h1('7  Task 5: Performance Evaluation')
 body('Figures 6–8 are the three required plots. Figure 9 adds the RTT, which makes path changes visible. '
-     'Grey bands mark the three floods, and dotted lines mark the two reroutes of h1→h6 in scenario b. Table 8 '
+     'Grey bands mark the three floods, and dotted lines mark the two reroutes of h1→h6 in scenario b. Table 9 '
      'summarises each phase.')
 figure('fig1_normalized_link_cost.png', 16.0, 'Figure 6. Dynamic link cost (normalised, C(t)/C0) against time for the flooded links '
        'and for s1–s5, which carries h1→h6 during scenario b.')
@@ -668,7 +686,7 @@ table(['Scenario', 'Phase', 'h1→h6 path', 'Throughput mean / min (Mbit/s)', 'U
        ['c', 'during', 's1–s2–s6', '5.00 / 4.99', '0 %', '0 / 311', '98.5 ms'],
        ['c', 'after', 's1–s2–s6', '5.00 / 4.99', '0 %', '0 / 100', '98.6 ms']],
       [1.5, 1.4, 3.3, 3.1, 2.8, 1.7, 1.9],
-      cap='Table 8. h1→h6 before (10 s to 1 s before the flood), during the flood, and after it (10–20 s after the '
+      cap='Table 9. h1→h6 before (10 s to 1 s before the flood), during the flood, and after it (10–20 s after the '
           'flood). *136.6 ms once on s1–s5–s6.', align_cols=[0, 1, 3, 4, 5, 6])
 
 h2('7.1  Routing cost')
@@ -766,7 +784,7 @@ table(['Parameter', 'Value', 'Purpose'],
        ['LOAD_SMOOTHING', '0.5', 'weight of the newest link-rate sample'],
        ['REROUTE_MARGIN', '2.0', 'hysteresis for moving an installed flow'],
        ['DROP / ICMP counter / FWD priority', '5000 / 11 / 10', 'OpenFlow rule priorities']],
-      [5.4, 3.0, 7.8], cap='Table 9. Parameters at the top of anomaly_aware_controller.py.')
+      [5.4, 3.0, 7.8], cap='Table 10. Parameters at the top of anomaly_aware_controller.py.')
 
 h1('Appendix B  Files and reproduction')
 table(['File', 'Content'],
@@ -775,7 +793,7 @@ table(['File', 'Content'],
        ['solution/run_experiment.py', 'automated experiment: topology, traffic, attacks, measurements'],
        ['solution/summarize_run.py, plot_results.py, run_data.py', 'per-scenario summary and the plots of Section 7'],
        ['solution/results/run4/', 'raw data of the evaluated run (controller CSVs, iperf3, ping, flow tables)']],
-      [7.0, 9.2], cap='Table 10. Submitted files.')
+      [7.0, 9.2], cap='Table 11. Submitted files.')
 code('''# automated run (about 4 minutes), results in results/run4
 cd ~/CA2/solution && sudo python3 run_experiment.py --out results/run4
 python3 summarize_run.py results/run4 > results/run4/summary.md
