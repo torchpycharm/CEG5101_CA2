@@ -511,16 +511,18 @@ s5: cookie=0xca20002, duration=13.797s, n_packets=0,      priority=5000,ip,nw_sr
 s6: cookie=0xca20002, duration=13.803s, n_packets=1,      priority=5000,ip,nw_src=10.0.0.2 actions=drop''',
      'Listing 2. Drop rules in the flow tables during scenario a (excerpt of run4/flows_during_a.txt; '
      'table and byte fields omitted).', size=7.4)
-placeholder('Controller log of scenario a',
-            ['Ryu terminal showing [ANOMALY] 10.0.0.2 … links=s2-s3, [BLOCK] 10.0.0.2 blocked on all switches,',
-             'the following [REROUTE] lines and, after the flood stops, [UNBLOCK] 10.0.0.2.',
-             'No other IP (in particular 10.0.0.3) may appear in a BLOCK line.'],
-            'Figure 4. Controller output for scenario a: detection, blocking, rerouting and release of h2.')
-placeholder('Drop rule installed by the controller',
-            ['mininet> sh ovs-ofctl -O OpenFlow13 dump-flows s2 | grep priority=5000   (and the same for s3),',
-             'run twice during the flood: the nw_src=10.0.0.2 actions=drop rule with n_packets increasing',
-             'on s2 and only a small, constant count on s3.'],
-            'Figure 5. The priority-5000 drop rule for 10.0.0.2 and its packet counter during the flood.')
+figure('task2_scenario_a_demo.png', 16.0, 'Figure 4. Manual run of scenario a. Left: Mininet CLI with pingall, the '
+       'baseline ping, the flood and two queries each of the s2 drop rule and the s3 forwarding rule. Right: '
+       'controller log with detection, blocking, rerouting and release of h2.')
+body('Figure 4 repeats scenario a by hand, following the Task 2 procedure: `pingall` (0 % loss), a 1-s ping from h2 '
+     'to h3 to build the baseline, then `hping3 --icmp --flood` from h2 to h3 for 20 s. The controller reports '
+     '`[ANOMALY] 10.0.0.2 rate=40255 pps baseline=2.0 pps threshold=1000 pps links=s2-s3` followed by '
+     '`[BLOCK] 10.0.0.2 blocked on all switches`. No other address is blocked; in particular the victim 10.0.0.3 '
+     'is not. The flows that crossed s2–s3 (h1↔h3, h3→h2, h3↔h4) are then rerouted via s5 or s6. During the flood, '
+     'the drop rule on s2 counts 21,079 and then 153,649 packets 1.85 s later (about 71k packets/s), while the '
+     'h2→h3 forwarding rule on s3 stays at 112,172 packets in both queries. The flood is therefore dropped at '
+     'the ingress switch and no longer forwarded towards h3. After the flood ends, h2 is released ("released '
+     'after 26 s") and the rerouted flows return to their original paths.')
 
 # ================================================================== 5 TASK 3
 h1('5  Task 3: Dynamic Link-Cost Update')
@@ -541,7 +543,7 @@ bullets(['**Current rate** *R*_{ij}(*t*)**.** Taken from the `tx_bytes` port cou
          'ignores the attacker\'s low-rate background flows, so only links that actually carried the attack '
          'are penalised. In run4 the flagged links were exactly s2–s3, s2–s6 and s5–s6.',
          '**Normalised cost** *C*_{ij}/*C*^{0}_{ij} equals 1 on an idle, clean link and reaches at most '
-         '1 + (α + β)/*C*^{0} = 4 for *C*^{0} = 10. It is the quantity plotted in Figure 6.'])
+         '1 + (α + β)/*C*^{0} = 4 for *C*^{0} = 10. It is the quantity plotted in Figure 5.'])
 code('''for u, v in links:                                          # every switch-to-switch link, once
     fwd, rev = self.link_rate.get((u, v), 0.0), self.link_rate.get((v, u), 0.0)
     utilisation = min(1.0, max(fwd, rev) / LINK_CAPACITY_BPS)       # R / Rmax, Rmax = 40 Mbit/s
@@ -570,7 +572,7 @@ table(['Scenario', 'Link', 'C^{0}', 'Cost before (norm.)', 'Peak util.', 'Peak c
       [1.5, 1.4, 1.0, 2.3, 1.5, 2.4, 2.4, 3.6],
       cap='Table 6. Dynamic cost of the flooded links (release time measured from the end of the flood).',
       align_cols=[0, 2, 4])
-body('Figure 6 (Section 7) plots these costs against time. Four observations follow:')
+body('Figure 5 (Section 7) plots these costs against time. Four observations follow:')
 bullets(['**The load term and the anomaly term act on different time scales.** At the first poll after the '
          'attack begins, both terms rise and the cost jumps to 30.8–32.0. The drop rule removes the flood '
          'from the link in the same poll, so the measured load then decays geometrically because of the '
@@ -666,14 +668,14 @@ body('**Scenario c (link s5–s6).** This flood hits the alternative path rather
 
 # ================================================================== 7 TASK 5
 h1('7  Task 5: Performance Evaluation')
-body('Figures 6–8 are the three required plots. Figure 9 adds the RTT, which makes path changes visible. '
+body('Figures 5–7 are the three required plots. Figure 8 adds the RTT, which makes path changes visible. '
      'Grey bands mark the three floods, and dotted lines mark the two reroutes of h1→h6 in scenario b. Table 9 '
      'summarises each phase.')
-figure('fig1_normalized_link_cost.png', 16.0, 'Figure 6. Dynamic link cost (normalised, C(t)/C0) against time for the flooded links '
+figure('fig1_normalized_link_cost.png', 16.0, 'Figure 5. Dynamic link cost (normalised, C(t)/C0) against time for the flooded links '
        'and for s1–s5, which carries h1→h6 during scenario b.')
-figure('fig2_packet_loss.png', 16.0, 'Figure 7. Packet loss of h1→h6 against time: UDP loss per iperf3 interval and ping loss per second.')
-figure('fig3_throughput.png', 16.0, 'Figure 8. Throughput of the h1→h6 UDP flow against time.')
-figure('fig4_rtt.png', 16.0, 'Figure 9. Round-trip time of h1→h6 (ping every 0.1 s). The step to 137 ms is the move to '
+figure('fig2_packet_loss.png', 16.0, 'Figure 6. Packet loss of h1→h6 against time: UDP loss per iperf3 interval and ping loss per second.')
+figure('fig3_throughput.png', 16.0, 'Figure 7. Throughput of the h1→h6 UDP flow against time.')
+figure('fig4_rtt.png', 16.0, 'Figure 8. Round-trip time of h1→h6 (ping every 0.1 s). The step to 137 ms is the move to '
        's1–s5–s6.')
 table(['Scenario', 'Phase', 'h1→h6 path', 'Throughput mean / min (Mbit/s)', 'UDP loss', 'Ping loss', 'RTT mean'],
       [['a', 'before', 's1–s2–s6', '5.00 / 4.99', '0 %', '0 / 90', '98.6 ms'],
@@ -698,7 +700,7 @@ body('Before any anomaly, only links that carry the legitimate flow sit above 1:
      'components the assignment asks for: current load and anomaly state.')
 h2('7.2  Path selection')
 body('The h1→h6 path changes exactly when a penalised link lies on it (scenario b) and stays put when the '
-     'penalised link is elsewhere (a, c). Figure 9 shows the change: the RTT steps from 98.5 ms to 136.6 ms '
+     'penalised link is elsewhere (a, c). Figure 8 shows the change: the RTT steps from 98.5 ms to 136.6 ms '
      'at +1.2 s and returns at release. The single intermediate samples (108 ms and 120 ms) belong to probes in '
      'flight during the switch. The 38 ms increase is the price of the detour. s1–s5 (18 ms) and s5–s6 (20 ms) '
      'have the controller\'s default C^{0} = 10 even though they are the slowest links in the mesh, so the cost '
@@ -713,7 +715,7 @@ body('Of 2,102 ping probes, none was lost during the whole run, and of 109,255 U
      'onset of scenario c, without any UDP or ping loss), while h6\'s UDP receive-buffer errors stayed at 0. The loss therefore happened in the network queue in front of the victim, not '
      'in the receiving host. This explains why rerouting and blocking are both needed. Rerouting protects '
      'legitimate traffic on shared transit links, but only blocking at the attacker\'s ingress relieves the '
-     'victim\'s own access link. Figure 7 shows this loss in the 89–91 s bins because iperf3\'s 1-s reporting '
+     'victim\'s own access link. Figure 6 shows this loss in the 89–91 s bins because iperf3\'s 1-s reporting '
      'grid lags the experiment clock by about 0.5 s, as the server starts its interval timer only after the '
      'test set-up. The interface counters show no flood traffic before 90.2 s. The return to s1–s2–s6 at 127.4 s lost no '
      'packets, and the queue drops on s6-eth1 fully account for the loss around the first switch at 91.4 s. This is '
