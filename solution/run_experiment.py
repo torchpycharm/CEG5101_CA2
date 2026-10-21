@@ -135,6 +135,25 @@ def dump_flows(net, out_dir, label):
                 stdout=subprocess.PIPE, universal_newlines=True).stdout)
 
 
+def open_monitors(out_dir, ryu_log):
+    """Pop up xterm windows (shown on the Windows desktop through WSLg) with the
+    controller output and the live dashboard. They stay open after the run."""
+    env = dict(os.environ)
+    env.setdefault('DISPLAY', ':0')          # plain `sudo` drops DISPLAY
+    windows = [
+        ('CA2 controller', '-geometry 120x45+0+0', 'tail -n +1 -f %s' % ryu_log),
+        ('CA2 live view', '-geometry 100x45-0+0',
+         '%s %s --run %s' % (sys.executable, os.path.join(HERE, 'live_view.py'), out_dir)),
+    ]
+    for title, geometry, cmd in windows:
+        try:
+            subprocess.Popen(['xterm', '-T', title] + geometry.split() +
+                             ['-fa', 'Monospace', '-fs', '10', '-e', 'bash', '-c', cmd],
+                             env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as err:
+            print('could not open %s window: %s' % (title, err))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -148,6 +167,8 @@ def main():
     parser.add_argument('--cost-mode', default='controller', choices=['controller', 'delay'])
     parser.add_argument('--alpha', default=None, help='override COST_ALPHA')
     parser.add_argument('--beta', default=None, help='override COST_BETA')
+    parser.add_argument('--monitor', action='store_true',
+                        help='open xterm windows with the controller output and live_view.py')
     args = parser.parse_args()
 
     if os.geteuid() != 0:
@@ -170,6 +191,8 @@ def main():
     ryu_log = os.path.join(out_dir, 'controller.log')
     ryu = subprocess.Popen(['ryu-manager', '--observe-links', args.controller],
                            stdout=open(ryu_log, 'w'), stderr=subprocess.STDOUT, env=env)
+    if args.monitor:
+        open_monitors(out_dir, ryu_log)
     time.sleep(3)
 
     # ---- topology ----
