@@ -216,11 +216,26 @@ def main():
         return
     try:
         start = time.time()
+        t_end = None
         while True:
             now = time.time()
             until = t0 + (now - start) * a.replay if a.replay and t0 else now
+            # run_experiment.py writes timeline.json when the experiment ends, just before
+            # it stops Mininet: freeze there so the teardown's LINK_DOWN events stay hidden
+            if a.run and not a.replay and t_end is None:
+                tl_path = os.path.join(a.run, 'timeline.json')
+                if os.path.exists(tl_path):
+                    try:
+                        with open(tl_path) as f:
+                            t_end = json.load(f).get('t_end')
+                    except ValueError:
+                        pass                     # still being written
+            if t_end:
+                until = min(until, t_end)
             text = frame(a, until, t0 if a.replay else None, t_iperf if a.replay else None,
                          timeline if a.replay else [])
+            if t_end and not a.replay:
+                text += '\n\n%sExperiment finished: view frozen at its last moment (Ctrl+C to exit)%s' % (GREEN, RESET)
             sys.stdout.write('\033[2J\033[H' + text + '\n')
             sys.stdout.flush()
             time.sleep(1.0)
