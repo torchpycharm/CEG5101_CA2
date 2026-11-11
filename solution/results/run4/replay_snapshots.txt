@@ -1,0 +1,178 @@
+================================================================================
+① Before any attack (Task 4 initial state)  (t = 25 s)
+================================================================================
+CA2 live view  01:18:14 t=25 s
+
+h1 -> h6 path  controller: s1>s2>s6  (cost 17.590)
+               data plane: s1>s2>s6>h6
+               UDP 5.00 Mbit/s, loss 0/521 (0.0 %)   |   ping RTT 98.6 ms, last 5 s lost 0/51
+
+link     fwd Mb/s  rev Mb/s   util   A    C0     cost   C/C0
+s1-s2       5.179     0.009 0.1295   0  5.00    6.295 1.2589
+s2-s6       5.182     0.009 0.1296   0 10.00   11.296 1.1296
+s1-s5       0.000     0.000 0.0000   0 10.00   10.000 1.0000
+s5-s6       0.001     0.001 0.0000   0 10.00   10.000 1.0000
+s2-s3       0.002     0.002 0.0000   0 10.00   10.000 1.0000
+s2-s5       0.000     0.000 0.0000   0 10.00   10.000 1.0000
+s3-s6       0.000     0.000 0.0000   0 10.00   10.000 1.0000
+
+src         pps   baseline  threshold  state
+h1        530.4     519.62     1558.8  normal
+h2          2.0       1.97     1000.0  normal
+h3          1.0       0.99     1000.0  normal
+h4          1.0       1.00     1000.0  normal
+h5          1.0       1.00     1000.0  normal
+h6          0.0       0.05     1000.0  normal
+
+events
+(none yet)
+
+================================================================================
+② Scenario a, during the flood (s2–s3)  (t = 40 s)
+================================================================================
+CA2 live view  01:18:29 t=40 s  ATTACK a: h2 -> h3 on s2-s3
+
+h1 -> h6 path  controller: s1>s2>s6  (cost 17.594)
+               data plane: s1>s2>s6>h6
+               UDP 4.99 Mbit/s, loss 0/520 (0.0 %)   |   ping RTT 98.8 ms, last 5 s lost 0/51
+
+link     fwd Mb/s  rev Mb/s   util   A    C0     cost   C/C0
+s1-s2       5.191     0.009 0.1298   0  5.00    6.298 1.2596
+s2-s6       5.185     0.008 0.1296   0 10.00   11.296 1.1296
+s1-s5       0.000     0.000 0.0000   0 10.00   10.000 1.0000
+s5-s6       0.001     0.001 0.0000   0 10.00   10.000 1.0000
+s2-s3       0.446     0.427 0.0111   1 10.00   30.111 3.0111
+s2-s5       0.000     0.020 0.0005   0 10.00   10.005 1.0005
+s3-s6       0.000     0.000 0.0000   0 10.00   10.000 1.0000
+
+src         pps   baseline  threshold  state
+h1        532.3     529.84     1589.5  normal
+h2      63786.0       1.98     1000.0  blocked
+h3          1.0       1.00     1000.0  normal
+h4          1.0       1.00     1000.0  normal
+h5          1.0       1.00     1000.0  normal
+h6          0.0       0.00     1000.0  normal
+
+events
+  31.3 s ANOMALY  10.0.0.2 rate=5708 pps baseline=2.0 pps threshold=1000 pps links=s2-s3
+  31.3 s BLOCK    10.0.0.2 blocked on all switches
+  31.3 s REROUTE  10.0.0.1->10.0.0.3 s1>s2>s3 (37.03) => s1>s5>s3 (20.00) [cost update]
+  31.3 s REROUTE  10.0.0.3->10.0.0.1 s3>s2>s1 (37.03) => s3>s5>s1 (20.00) [cost update]
+  31.3 s REROUTE  10.0.0.3->10.0.0.2 s3>s2 (30.73) => s3>s5>s2 (20.00) [cost update]
+  31.3 s REROUTE  10.0.0.3->10.0.0.4 s3>s2>s4 (38.73) => s3>s5>s4 (20.00) [cost update]
+  31.3 s REROUTE  10.0.0.4->10.0.0.3 s4>s2>s3 (38.73) => s4>s5>s3 (20.00) [cost update]
+
+================================================================================
+③ Scenario b, during the flood (s2–s6): h1→h6 rerouted  (t = 105 s)
+================================================================================
+CA2 live view  01:19:34 t=105 s  ATTACK b: h2 -> h6 on s2-s6
+
+h1 -> h6 path  controller: s1>s5>s6  (cost 22.543)
+               data plane: s1>s5>s6>h6
+               UDP 5.00 Mbit/s, loss 0/521 (0.0 %)   |   ping RTT 137.0 ms, last 5 s lost 0/50
+
+link     fwd Mb/s  rev Mb/s   util   A    C0     cost   C/C0
+s1-s2       0.102     0.001 0.0026   0  5.00    5.026 1.0051
+s2-s6       0.218     0.114 0.0055   1 10.00   30.055 3.0055
+s1-s5       5.085     0.008 0.1271   0 10.00   11.271 1.1271
+s5-s6       5.085     0.012 0.1271   0 10.00   11.271 1.1271
+s2-s3       0.001     0.001 0.0000   0 10.00   10.000 1.0000
+s2-s5       0.000     0.003 0.0001   0 10.00   10.001 1.0001
+s3-s6       0.000     0.000 0.0000   0 10.00   10.000 1.0000
+
+src         pps   baseline  threshold  state
+h1        530.2     530.89     1592.7  normal
+h2      64619.4       1.99     1000.0  blocked
+h3          1.0       1.00     1000.0  normal
+h4          1.0       1.00     1000.0  normal
+h5          1.0       1.00     1000.0  normal
+h6          0.0       0.00     1000.0  normal
+
+events
+  67.4 s REROUTE  10.0.0.3->10.0.0.2 s3>s5>s2 (20.00) => s3>s2 (10.00) [cost update]
+  67.4 s REROUTE  10.0.0.3->10.0.0.4 s3>s5>s4 (20.00) => s3>s2>s4 (18.00) [cost update]
+  67.4 s REROUTE  10.0.0.4->10.0.0.3 s4>s5>s3 (20.00) => s4>s2>s3 (18.00) [cost update]
+  91.4 s ANOMALY  10.0.0.2 rate=4124 pps baseline=2.0 pps threshold=1000 pps links=s2-s6
+  91.4 s BLOCK    10.0.0.2 blocked on all switches
+  91.4 s REROUTE  10.0.0.1->10.0.0.6 s1>s2>s6 (38.30) => s1>s5>s6 (20.00) [cost update]
+  91.4 s REROUTE  10.0.0.6->10.0.0.1 s6>s2>s1 (38.30) => s6>s5>s1 (20.00) [cost update]
+  91.4 s REROUTE  10.0.0.6->10.0.0.2 s6>s2 (32.00) => s6>s5>s2 (20.00) [cost update]
+  91.4 s REROUTE  10.0.0.4->10.0.0.6 s4>s2>s6 (40.00) => s4>s5>s6 (20.00) [cost update]
+  91.4 s REROUTE  10.0.0.6->10.0.0.4 s6>s2>s4 (40.00) => s6>s5>s4 (20.00) [cost update]
+
+================================================================================
+④ Scenario b, after recovery  (t = 130 s)
+================================================================================
+CA2 live view  01:19:59 t=130 s  recovery after b
+
+h1 -> h6 path  controller: s1>s2>s6  (cost 15.963)
+               data plane: s1>s2>s6>h6
+               UDP 4.99 Mbit/s, loss 0/520 (0.0 %)   |   ping RTT 98.5 ms, last 5 s lost 0/51
+
+link     fwd Mb/s  rev Mb/s   util   A    C0     cost   C/C0
+s1-s2       1.934     0.004 0.0484   0  5.00    5.484 1.0967
+s2-s6       1.919     0.003 0.0480   0 10.00   10.480 1.0480
+s1-s5       3.268     0.005 0.0817   0 10.00   10.817 1.0817
+s5-s6       3.272     0.006 0.0818   0 10.00   10.818 1.0818
+s2-s3       0.001     0.001 0.0000   0 10.00   10.000 1.0000
+s2-s5       0.000     0.000 0.0000   0 10.00   10.000 1.0000
+s3-s6       0.000     0.000 0.0000   0 10.00   10.000 1.0000
+
+src         pps   baseline  threshold  state
+h1        531.7     537.65     1613.0  normal
+h2          1.0       1.69     1000.0  normal
+h3          1.0       1.00     1000.0  normal
+h4          1.0       1.00     1000.0  normal
+h5          1.0       1.00     1000.0  normal
+h6          0.0       0.00     1000.0  normal
+
+events
+  91.4 s REROUTE  10.0.0.6->10.0.0.1 s6>s2>s1 (38.30) => s6>s5>s1 (20.00) [cost update]
+  91.4 s REROUTE  10.0.0.6->10.0.0.2 s6>s2 (32.00) => s6>s5>s2 (20.00) [cost update]
+  91.4 s REROUTE  10.0.0.4->10.0.0.6 s4>s2>s6 (40.00) => s4>s5>s6 (20.00) [cost update]
+  91.4 s REROUTE  10.0.0.6->10.0.0.4 s6>s2>s4 (40.00) => s6>s5>s4 (20.00) [cost update]
+ 127.4 s UNBLOCK  10.0.0.2 released after 36 s (anomalous traffic stopped)
+ 127.4 s REROUTE  10.0.0.1->10.0.0.6 s1>s5>s6 (22.59) => s1>s2>s6 (15.00) [cost update]
+ 127.4 s REROUTE  10.0.0.6->10.0.0.1 s6>s5>s1 (22.59) => s6>s2>s1 (15.00) [cost update]
+ 127.4 s REROUTE  10.0.0.6->10.0.0.2 s6>s5>s2 (21.30) => s6>s2 (10.00) [cost update]
+ 127.4 s REROUTE  10.0.0.4->10.0.0.6 s4>s5>s6 (21.30) => s4>s2>s6 (18.00) [cost update]
+ 127.4 s REROUTE  10.0.0.6->10.0.0.4 s6>s5>s4 (21.30) => s6>s2>s4 (18.00) [cost update]
+
+================================================================================
+⑤ Scenario c, during the flood (s5–s6)  (t = 165 s)
+================================================================================
+CA2 live view  01:20:34 t=165 s  ATTACK c: h5 -> h6 on s5-s6
+
+h1 -> h6 path  controller: s1>s2>s6  (cost 17.593)
+               data plane: s1>s2>s6>h6
+               UDP 5.00 Mbit/s, loss 0/521 (0.0 %)   |   ping RTT 98.4 ms, last 5 s lost 0/51
+
+link     fwd Mb/s  rev Mb/s   util   A    C0     cost   C/C0
+s1-s2       5.186     0.009 0.1297   0  5.00    6.297 1.2593
+s2-s6       5.185     0.009 0.1296   0 10.00   11.296 1.1296
+s1-s5       0.000     0.000 0.0000   0 10.00   10.000 1.0000
+s5-s6       0.095     0.092 0.0024   1 10.00   30.024 3.0024
+s2-s3       0.002     0.002 0.0000   0 10.00   10.000 1.0000
+s2-s5       0.000     0.000 0.0000   0 10.00   10.000 1.0000
+s3-s6       0.000     0.003 0.0001   0 10.00   10.001 1.0001
+
+src         pps   baseline  threshold  state
+h1        531.3     524.34     1573.0  normal
+h2          2.0       2.00     1000.0  normal
+h3          1.0       1.00     1000.0  normal
+h4          1.0       1.00     1000.0  normal
+h5      63017.5       1.00     1000.0  blocked
+h6          0.0       0.00     1000.0  normal
+
+events
+  91.4 s REROUTE  10.0.0.6->10.0.0.4 s6>s2>s4 (40.00) => s6>s5>s4 (20.00) [cost update]
+ 127.4 s UNBLOCK  10.0.0.2 released after 36 s (anomalous traffic stopped)
+ 127.4 s REROUTE  10.0.0.1->10.0.0.6 s1>s5>s6 (22.59) => s1>s2>s6 (15.00) [cost update]
+ 127.4 s REROUTE  10.0.0.6->10.0.0.1 s6>s5>s1 (22.59) => s6>s2>s1 (15.00) [cost update]
+ 127.4 s REROUTE  10.0.0.6->10.0.0.2 s6>s5>s2 (21.30) => s6>s2 (10.00) [cost update]
+ 127.4 s REROUTE  10.0.0.4->10.0.0.6 s4>s5>s6 (21.30) => s4>s2>s6 (18.00) [cost update]
+ 127.4 s REROUTE  10.0.0.6->10.0.0.4 s6>s5>s4 (21.30) => s6>s2>s4 (18.00) [cost update]
+ 151.5 s ANOMALY  10.0.0.5 rate=17147 pps baseline=1.0 pps threshold=1000 pps links=s5-s6
+ 151.5 s BLOCK    10.0.0.5 blocked on all switches
+ 151.5 s REROUTE  10.0.0.6->10.0.0.5 s6>s5 (30.57) => s6>s3>s5 (20.00) [cost update]
+
